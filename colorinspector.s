@@ -16,12 +16,14 @@ A3L         =         $40       ;general purpose A3 register low byte
 A3H         =         $41       ;general purpose A3 register high byte
 A4L         =         $42       ;general purpose A4 register low byte
 A4H         =         $43       ;general purpose A4 register high byte
+HGR1SCRN    =       $2000       ;hires page 1 base address
 KBD         =       $C000       ;keyboard value
 KBDSTRB     =       $C010       ;keyboard strobe
 TXTCLR      =       $C050       ;graphics
 TXTSET      =       $C051       ;text
 MIXCLR      =       $C052       ;no split
 MIXSET      =       $C053       ;split
+LORES       =       $C056       ;lores
 HIRES       =       $C057       ;hires
 AN0OFF      =       $C058       ;annunciator 0 off
 AN0ON       =       $C059       ;annunciator 0 on
@@ -110,10 +112,11 @@ colorshi: .hibytes colors
             lda AN2ON
             lda AN3ON
             jsr clearhires
-            sta HIRES
 
             lda #(SCRNWIDTH - colorinsplen) / 2
             sta CH
+            ldy #colorinsplen
+            jsr underline
             coutstr colorinsp
 
             lda #23
@@ -171,9 +174,16 @@ colorshi: .hibytes colors
             bpl @nextcolor
 
 @nextframe: jsr VAPORLK
-            jsr topbottom
-            jsr middle
-            jsr topbottom
+            ldx #8
+            jsr textscanlines
+            ldx #8
+            jsr hiresscanlines
+            ldx #16
+            jsr textscanlines
+            ldx #128
+            jsr colorbarscanlines
+            ldx #32
+            jsr textscanlines
 
             lda BUTN0
             bmi @waitkeyup
@@ -215,6 +225,31 @@ colorshi: .hibytes colors
             rts
 .endproc
 
+;underline line 1
+;input: A = horizontal character position, Y = length (min 2)
+.proc underline
+            clc
+            adc #$80
+            sta A1L
+            lda #>HGR1SCRN
+            ldx VERSION
+            cpx #6
+            beq @iie
+            lda #>HGR1SCRN + 4
+@iie:       sta A1H
+            dey
+            lda #%00111111
+            sta (A1L),Y
+            dey
+            lda #%01111111
+@loop:      sta (A1L),Y
+            dey
+            bne @loop
+            lda #%01111110
+            sta (A1L),Y
+            rts
+.endproc
+
 ;output a string
 ;input: A3 = string
 .proc couta3
@@ -250,9 +285,7 @@ colorshi: .hibytes colors
             jmp COUT            ;output character
 .endproc
 
-.proc topbottom
-            ldx #31             ;2
-                                ;frame starts here
+.proc textscanlines
 @scanline:  sta TXTSET          ;4
             php                 ;3
             plp                 ;4
@@ -267,17 +300,38 @@ colorshi: .hibytes colors
             cmp A3L             ;3
             plp                 ;4
             dex                 ;2
-  samepage  bmi,@end            ;2+1
+  samepage  beq,@end            ;2+1
             php                 ;3
             asl A3L             ;5
             plp                 ;4
-  samepage  bpl,@scanline       ;3 always
+  samepage  bne,@scanline       ;3 always
 @end:       rts                 ;6
 .endproc
 
-.proc middle
-            ldx #127            ;2
-                                ;frame starts here
+.proc hiresscanlines
+@scanline:  sta HIRES           ;4
+            php                 ;3
+            plp                 ;4
+            php                 ;3
+            plp                 ;4
+            php                 ;3
+            plp                 ;4
+            php                 ;3
+            plp                 ;4
+            sta LORES           ;4
+            php                 ;3
+            cmp A3L             ;3
+            plp                 ;4
+            dex                 ;2
+  samepage  beq,@end            ;2+1
+            php                 ;3
+            asl A3L             ;5
+            plp                 ;4
+  samepage  bne,@scanline       ;3 always
+@end:       rts                 ;6
+.endproc
+
+.proc colorbarscanlines
 @scanline:  sta TXTSET          ;4
             php                 ;3
             asl A3L             ;5
@@ -291,10 +345,10 @@ colorshi: .hibytes colors
             asl A3L             ;5
             plp                 ;4
             dex                 ;2
-  samepage  bmi,@end            ;2+1
+  samepage  beq,@end            ;2+1
             php                 ;3
             asl A3L             ;5
             plp                 ;4
-  samepage  bpl,@scanline       ;3 always
+  samepage  bne,@scanline       ;3 always
 @end:       rts                 ;6
 .endproc
