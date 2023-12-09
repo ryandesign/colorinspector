@@ -41,6 +41,7 @@ TABV        =       $FB5B       ;set cursor vertical position
 VERSION     =       $FBB3       ;machine identification byte
 HOME        =       $FC58       ;clear text screen 1 and move cursor to top left
 CROUT       =       $FD8E       ;print carriage return
+PRBYTE      =       $FDDA       ;print A as hex
 PRHEX       =       $FDE3       ;print low nibble of A as hex
 COUT        =       $FDF0       ;output character A
 IDROUTINE   =       $FE1F       ;identify if machine is iigs
@@ -50,6 +51,12 @@ SETVID      =       $FE93       ;set CSW to COUT1
 RESET       =       $FFFC       ;reset vector
 
 SCRNWIDTH   =          40       ;screen width in characters
+NUMCOL      =           1       ;column for color number
+BARCOL      =          15       ;start column for color bar
+BARLEN      =          11       ;length of color bar
+HUECOL      =          30       ;column for hue
+SATCOL      =          34       ;column for saturation
+BRICOL      =          38       ;column for brightness
 
 ;define a string in which every char except the last one has the high bit set
 .macro defstr name, str
@@ -119,6 +126,13 @@ colorshi: .hibytes colors
             jsr underline
             coutstr colorinsp
 
+            lda #2
+            jsr TABV
+            lda #BRICOL
+            sta CH
+            lda #'B' | %10000000
+            jsr COUT
+
             lda #23
             jsr TABV
             lda #(SCRNWIDTH - anykeylen + 1) / 2
@@ -129,9 +143,9 @@ colorshi: .hibytes colors
 @nextline:  txa
             jsr TABV
             lda #0
-            tay
+            ldy #SCRNWIDTH - 1
             sta (BASL),y
-            ldy #39
+            tay
             sta (BASL),y
             dex
             bpl @nextline
@@ -140,18 +154,34 @@ colorshi: .hibytes colors
 @nextcolor: txa
             adc #4
             jsr TABV
-            lda #1
+
+            lda #NUMCOL
             sta CH
             txa
             jsr PRHEX
+
             inc CH
             lda colorslo,x
             sta A3L
             lda colorshi,x
             sta A3H
             jsr couta3
+
+            lda #BRICOL - 1
+            sta CH
+            txa
+            sta A3L
+            tya
+            ldy #4
+@nextbri:   lsr A3L
+            bcc @notset
+            adc #24
+@notset:    dey
+            bne @nextbri
+            jsr PRBYTE
+
             lda BASL
-            adc #15
+            adc #BARCOL - 1
             sta BASL
             txa
             ;sta A3L
@@ -160,10 +190,11 @@ colorshi: .hibytes colors
             asl
             asl
             ;adc A3L
-            ldy #10
+            ldy #BARLEN
 @drawbar:   sta (BASL),y
             dey
-            bpl @drawbar
+            bne @drawbar
+
             dex
             bpl @nextcolor
 
