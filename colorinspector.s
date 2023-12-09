@@ -113,7 +113,7 @@ colorshi: .hibytes colors
             lda AN3ON
             jsr clearhires
 
-            lda #(SCRNWIDTH - colorinsplen) / 2
+            lda #(SCRNWIDTH - colorinsplen + 1) / 2
             sta CH
             ldy #colorinsplen
             jsr underline
@@ -121,35 +121,29 @@ colorshi: .hibytes colors
 
             lda #23
             jsr TABV
-            lda #(SCRNWIDTH - anykeylen) / 2
+            lda #(SCRNWIDTH - anykeylen + 1) / 2
             sta CH
             coutstr anykey
 
             ldx #23
 @nextline:  txa
             jsr TABV
-            ldy #39
             lda #0
-@blanks:    sta (BASL),y
-            cpy #36
-            beq @skipto3
-            dey
-            bpl @blanks
+            tay
+            sta (BASL),y
+            ldy #39
+            sta (BASL),y
             dex
             bpl @nextline
-            bmi @colors         ;always
-@skipto3:   ldy #3
-            bne @blanks         ;always
 
-@colors:    ldx #15
-@nextcolor: lda #4
-            sta CH
-            txa
+            ldx #15
+@nextcolor: txa
             adc #4
             jsr TABV
+            lda #1
+            sta CH
             txa
             jsr PRHEX
-            inc CH
             inc CH
             lda colorslo,x
             sta A3L
@@ -157,7 +151,7 @@ colorshi: .hibytes colors
             sta A3H
             jsr couta3
             lda BASL
-            adc #20
+            adc #15
             sta BASL
             txa
             ;sta A3L
@@ -166,7 +160,7 @@ colorshi: .hibytes colors
             asl
             asl
             ;adc A3L
-            ldy #15
+            ldy #10
 @drawbar:   sta (BASL),y
             dey
             bpl @drawbar
@@ -285,48 +279,41 @@ colorshi: .hibytes colors
             jmp COUT            ;output character
 .endproc
 
+;wait 31 cycles (including jsr and rts)
+.proc wait31                    ;6
+            jsr wait12          ;12
+            php                 ;3
+            plp                 ;4
+            ;fall through to wait12
+.endproc
+
+;wait 12 cycles (including jsr and rts)
+.proc wait12                    ;6
+            rts                 ;6
+.endproc
+
 .proc textscanlines
 @scanline:  sta TXTSET          ;4
+            jsr wait31          ;31
             php                 ;3
-            plp                 ;4
-            php                 ;3
-            plp                 ;4
-            php                 ;3
-            plp                 ;4
-            php                 ;3
-            plp                 ;4
             sta TXTCLR          ;4
-            php                 ;3
-            cmp A3L             ;3
             plp                 ;4
             dex                 ;2
   samepage  beq,@end            ;2+1
-            php                 ;3
-            asl A3L             ;5
-            plp                 ;4
+            jsr wait12          ;12
   samepage  bne,@scanline       ;3 always
 @end:       rts                 ;6
 .endproc
 
 .proc hiresscanlines
 @scanline:  sta HIRES           ;4
+            jsr wait31          ;31
             php                 ;3
-            plp                 ;4
-            php                 ;3
-            plp                 ;4
-            php                 ;3
-            plp                 ;4
-            php                 ;3
-            plp                 ;4
             sta LORES           ;4
-            php                 ;3
-            cmp A3L             ;3
             plp                 ;4
             dex                 ;2
   samepage  beq,@end            ;2+1
-            php                 ;3
-            asl A3L             ;5
-            plp                 ;4
+            jsr wait12          ;12
   samepage  bne,@scanline       ;3 always
 @end:       rts                 ;6
 .endproc
@@ -334,21 +321,20 @@ colorshi: .hibytes colors
 .proc colorbarscanlines
 @scanline:  sta TXTSET          ;4
             php                 ;3
-            asl A3L             ;5
             plp                 ;4
+            php                 ;3
             sta TXTCLR          ;4
-            php                 ;3
             plp                 ;4
             php                 ;3
+            sta TXTSET          ;4
             plp                 ;4
             php                 ;3
-            asl A3L             ;5
+            nop                 ;2
+            sta TXTCLR          ;4
             plp                 ;4
             dex                 ;2
   samepage  beq,@end            ;2+1
-            php                 ;3
-            asl A3L             ;5
-            plp                 ;4
+            jsr wait12          ;12
   samepage  bne,@scanline       ;3 always
 @end:       rts                 ;6
 .endproc

@@ -116,10 +116,10 @@ FIX2PLUS:       LDA     #IDBYTE
 
 SHOW:           BIT     SNIFF
                 BIT     SNIFF
-                BIT     SNIFF
+                ;BIT     SNIFF
                 BIT     LORES
 
-PHASE:          CLC
+PHASE:          SEC
        samepage BCS,    MORE5
 MORE5:          ;NOP
                 ;NOP
