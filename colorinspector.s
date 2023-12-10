@@ -128,6 +128,10 @@ colorshi: .hibytes colors
 
             lda #2
             jsr TABV
+            lda #SATCOL
+            sta CH
+            lda #'S' | %10000000
+            jsr COUT
             lda #BRICOL
             sta CH
             lda #'B' | %10000000
@@ -179,6 +183,26 @@ colorshi: .hibytes colors
 @notset:    dey
             bne @nextbri
             jsr PRBYTE
+
+            sta A3L
+            lda #SATCOL - 1
+            sta CH
+            txa
+            lsr
+            lsr
+            sta A3H
+            txa
+            and #%00000011
+            sec
+            sbc A3H
+            beq @printsat
+            lda A3L
+            clc
+            adc A3L
+            cmp #100
+            beq @printsat
+            lda #60
+@printsat:  jsr PRBYTE
 
             lda BASL
             adc #BARCOL - 1
