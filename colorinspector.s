@@ -169,17 +169,6 @@ hsb:        .byte  0,  0,  0
             sta CH
             coutstr anykey
 
-            ldx #23
-@nextline:  txa
-            jsr TABV
-            lda #0
-            ldy #SCRNWIDTH - 1
-            sta (BASL),y
-            tay
-            sta (BASL),y
-            dex
-            bpl @nextline
-
             ldx #15
 @nextcolor: txa
             adc #4
@@ -368,6 +357,13 @@ hsb:        .byte  0,  0,  0
             jmp COUT            ;output character
 .endproc
 
+;wait 46 cycles (including jsr and rts)
+.proc wait46                    ;6
+            jsr wait12          ;12
+            cmp A3L             ;3
+            ;fall through to wait31
+.endproc
+
 ;wait 31 cycles (including jsr and rts)
 .proc wait31                    ;6
             jsr wait12          ;12
@@ -395,11 +391,7 @@ hsb:        .byte  0,  0,  0
 .endproc
 
 .proc hiresscanlines
-@scanline:  sta HIRES           ;4
-            jsr wait31          ;31
-            php                 ;3
-            sta LORES           ;4
-            plp                 ;4
+@scanline:  jsr wait46          ;46
             dex                 ;2
   samepage  beq,@end            ;2+1
             jsr wait12          ;12
@@ -416,7 +408,7 @@ hsb:        .byte  0,  0,  0
             php                 ;3
             plp                 ;4
             sta TXTSET          ;4
-            sta LORES           ;4
+            sta HIRES           ;4
             nop                 ;2
             php                 ;3
             sta TXTCLR          ;4
