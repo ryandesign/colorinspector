@@ -25,7 +25,7 @@ run: $(PROG).dsk
 $(PROG): $(PROG).as
 	applesingle decode -o $@.$$$$ $^ && touch $@.$$$$ && mv $@.$$$$ $@
 
-$(PROG).as: $(PROG).s vaporlock.s
+$(PROG).as: $(PROG).s vaporlock.s DecPrintU16.s
 	$(CL65) -t apple2 -C apple2-asm.cfg --start-addr 0x$(LOAD_ADDRESS) -u __EXEHDR__ -o $@ $^
 
 $(PROG).aif: $(PROG)

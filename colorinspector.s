@@ -2,6 +2,7 @@
 ; SPDX-License-Identifier: MIT
 
 .import VAPORLK
+.import DecPrintU16
 
 .include "samepage.inc"
 
@@ -41,7 +42,6 @@ TABV        =       $FB5B       ;set cursor vertical position
 VERSION     =       $FBB3       ;machine identification byte
 HOME        =       $FC58       ;clear text screen 1 and move cursor to top left
 CROUT       =       $FD8E       ;print carriage return
-PRBYTE      =       $FDDA       ;print A as hex
 PRHEX       =       $FDE3       ;print low nibble of A as hex
 COUT        =       $FDF0       ;output character A
 IDROUTINE   =       $FE1F       ;identify if machine is iigs
@@ -195,7 +195,7 @@ hsb:        .byte  0,  0,  0
             sta A3H
             jsr couta3
 
-            lda #HUECOL - 2
+            lda #HUECOL - 3
             sta CH
             txa
             sta A2L
@@ -213,11 +213,7 @@ hsb:        .byte  0,  0,  0
             adc A3L
             sta A3L
             rol A3H
-            lda A3H
-            jsr PRHEX
-            lda A3L
-            jsr PRBYTE
-            inc CH
+            jsr DecPrintU16
             iny
             cpy A2L
             bcc @nexthsb
