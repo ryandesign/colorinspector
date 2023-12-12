@@ -106,6 +106,26 @@ defstr "white",         "White"
 colorslo: .lobytes colors
 colorshi: .hibytes colors
 
+;http://mrob.com/pub/xapple2/colors.html
+
+                ;hue sat bri
+hsb:        .byte  0,  0,  0
+            .byte 18, 12,  5
+            .byte  0, 12,  5
+            .byte  9, 20, 10
+            .byte 54, 12,  5
+            .byte  0,  0, 10
+            .byte 63, 20, 10
+            .byte  0, 12, 15
+            .byte 36, 12,  5
+            .byte 27, 20, 10
+            .byte  0,  0, 10
+            .byte 18, 12, 15
+            .byte 45, 20, 10
+            .byte 36, 12, 15
+            .byte 54, 12, 15
+            .byte  0,  0, 20
+
 .code
 
 .proc main
@@ -128,6 +148,10 @@ colorshi: .hibytes colors
 
             lda #2
             jsr TABV
+            lda #HUECOL
+            sta CH
+            lda #'H' | %10000000
+            jsr COUT
             lda #SATCOL
             sta CH
             lda #'S' | %10000000
@@ -171,41 +195,35 @@ colorshi: .hibytes colors
             sta A3H
             jsr couta3
 
-            lda #BRICOL - 1
+            lda #HUECOL - 2
             sta CH
             txa
-            sta A3L
-            tya
-            ldy #4
-@nextbri:   lsr A3L
-            bcc @notset
-            adc #24
-@notset:    dey
-            bne @nextbri
-            jsr PRBYTE
-
-            sta A3L
-            lda #SATCOL - 1
-            sta CH
-            txa
-            lsr
-            lsr
+            sta A2L
+            asl
+            adc A2L
+            tay
+            adc #3
+            sta A2L
+@nexthsb:   lda #0
             sta A3H
-            txa
-            and #%00000011
-            sec
-            sbc A3H
-            beq @printsat
-            lda A3L
-            clc
+            lda hsb,y
+            sta A3L
+            asl
+            asl
             adc A3L
-            cmp #100
-            beq @printsat
-            lda #60
-@printsat:  jsr PRBYTE
+            sta A3L
+            rol A3H
+            lda A3H
+            jsr PRHEX
+            lda A3L
+            jsr PRBYTE
+            inc CH
+            iny
+            cpy A2L
+            bcc @nexthsb
 
             lda BASL
-            adc #BARCOL - 1
+            adc #BARCOL - 2
             sta BASL
             txa
             ;sta A3L
