@@ -18,6 +18,7 @@ A3H         =         $41       ;general purpose A3 register high byte
 A4L         =         $42       ;general purpose A4 register low byte
 A4H         =         $43       ;general purpose A4 register high byte
 HGR1SCRN    =       $2000       ;hires page 1 base address
+IOADR       =       $C000       ;I/O addresses
 KBD         =       $C000       ;keyboard value
 KBDSTRB     =       $C010       ;keyboard strobe
 TXTCLR      =       $C050       ;graphics
@@ -50,6 +51,7 @@ SETKBD      =       $FE89       ;set KSW to KEYIN
 SETVID      =       $FE93       ;set CSW to COUT1
 RESET       =       $FFFC       ;reset vector
 
+SWITCHES    =        $300       ;table of switch address low bytes
 SCRNWIDTH   =          40       ;screen width in characters
 NUMCOL      =           1       ;column for color number
 BARCOL      =          15       ;start column for color bar
@@ -222,12 +224,12 @@ hsb:        .byte  0,  0,  0
             adc #BARCOL - 2
             sta BASL
             txa
-            ;sta A3L
+            sta A3L
             asl
             asl
             asl
             asl
-            ;adc A3L
+            adc A3L
             ldy #BARLEN
 @drawbar:   sta (BASL),y
             dey
@@ -235,6 +237,24 @@ hsb:        .byte  0,  0,  0
 
             dex
             bpl @nextcolor
+
+            inx
+            lda VERSION
+            cmp #6
+            beq @iie
+            inx
+@iie:       stx A3L
+            ldx #128
+@nextswitch:txa
+            clc
+            adc A3L
+            and #%00000110
+            beq @add
+            lda #$FF
+@add:       adc #<HIRES
+            sta SWITCHES,x
+            dex
+            bne @nextswitch
 
 @nextframe: jsr VAPORLK
             ldx #8
@@ -389,16 +409,16 @@ hsb:        .byte  0,  0,  0
 
 .proc colorbarscanlines
 @scanline:  sta TXTSET          ;4
-            php                 ;3
-            plp                 ;4
-            php                 ;3
-            sta TXTCLR          ;4
-            plp                 ;4
-            php                 ;3
-            sta TXTSET          ;4
-            plp                 ;4
-            php                 ;3
+            ldy SWITCHES,x      ;4
+            lda IOADR,y         ;4
             nop                 ;2
+            sta TXTCLR          ;4
+            php                 ;3
+            plp                 ;4
+            sta TXTSET          ;4
+            sta LORES           ;4
+            nop                 ;2
+            php                 ;3
             sta TXTCLR          ;4
             plp                 ;4
             dex                 ;2
