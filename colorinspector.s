@@ -56,9 +56,7 @@ SCRNWIDTH   =          40       ;screen width in characters
 NUMCOL      =           1       ;column for color number
 BARCOL      =          15       ;start column for color bar
 BARLEN      =          11       ;length of color bar
-HUECOL      =          30       ;column for hue
-SATCOL      =          34       ;column for saturation
-BRICOL      =          38       ;column for brightness
+HEADERSCOL  =          26       ;start column for headers
 
 ;define a string in which every char except the last one has the high bit set
 .macro defstr name, str
@@ -87,6 +85,7 @@ BRICOL      =          38       ;column for brightness
 .rodata
 
 defstr "colorinsp",     "COLOR INSPEC][R"
+defstr "headers",       "Phase Amp Lum"
 defstr "anykey",        "Press any key to exit"
 defstr "black",         "Black"
 defstr "magenta",       "Magenta"
@@ -110,8 +109,8 @@ colorshi: .hibytes colors
 
 ;http://mrob.com/pub/xapple2/colors.html
 
-                ;hue sat bri
-hsb:        .byte  0,  0,  0
+            ;  phase amp lum
+pal:        .byte  0,  0,  0
             .byte 18, 12,  5
             .byte  0, 12,  5
             .byte  9, 20, 10
@@ -150,18 +149,9 @@ hsb:        .byte  0,  0,  0
 
             lda #2
             jsr TABV
-            lda #HUECOL
+            lda #HEADERSCOL
             sta CH
-            lda #'H' | %10000000
-            jsr COUT
-            lda #SATCOL
-            sta CH
-            lda #'S' | %10000000
-            jsr COUT
-            lda #BRICOL
-            sta CH
-            lda #'B' | %10000000
-            jsr COUT
+            coutstr headers
 
             lda #23
             jsr TABV
@@ -186,7 +176,7 @@ hsb:        .byte  0,  0,  0
             sta A3H
             jsr couta3
 
-            lda #HUECOL - 3
+            lda #HEADERSCOL + 1
             sta CH
             txa
             sta A2L
@@ -195,9 +185,9 @@ hsb:        .byte  0,  0,  0
             tay
             adc #3
             sta A2L
-@nexthsb:   lda #0
+@nextcol:   lda #0
             sta A3H
-            lda hsb,y
+            lda pal,y
             sta A3L
             asl
             asl
@@ -207,7 +197,7 @@ hsb:        .byte  0,  0,  0
             jsr DecPrintU16
             iny
             cpy A2L
-            bcc @nexthsb
+            bcc @nextcol
 
             lda BASL
             adc #BARCOL - 2
