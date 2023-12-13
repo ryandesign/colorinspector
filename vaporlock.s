@@ -5,7 +5,7 @@
 
 .include "samepage.inc"
 
-.align 256
+;.align 256
 
 FULL        =   $C052
 GR          =   $C050
