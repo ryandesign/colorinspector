@@ -1,5 +1,7 @@
 # COLOR INSPEC][R
 
+![Screenshot](screenshot.png)
+
 Color Inspector is an Apple II program written in 6502 assembly that displays a
 single screen showing the sixteen available colors along with their names and
 numbers and the chrominance (phase and amplitude) and luma values the hardware
