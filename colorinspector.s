@@ -130,220 +130,235 @@ pal:        .byte  0,  0,  0
 .code
 
 .proc main
-            jsr SETNORM
-            jsr INIT
-            jsr SETVID
-            jsr SETKBD
-            jsr HOME
-            lda AN0OFF
+                                ;initialization copied from ROM RESET routine:
+            jsr SETNORM         ;use normal (not inverse) text
+            jsr INIT            ;text mode, page 1, lores, standard text window
+            jsr SETVID          ;use standard character output routine
+            jsr SETKBD          ;use standard keyboard input routine
+            jsr HOME            ;clear screen and move cursor to top left
+            lda AN0OFF          ;annunciators to standard
             lda AN1OFF
             lda AN2ON
             lda AN3ON
-            jsr clearhires
+
+            jsr clearhires      ;clear hires page 1 to black
 
             lda #(SCRNWIDTH - colorinsplen + 1) / 2
-            sta CH
-            ldy #colorinsplen
-            jsr underline
-            coutstr colorinsp
+            sta CH              ;position cursor for title
+            ldy #colorinsplen   ;load length of title into Y
+            jsr underline       ;draw underline for title on hires screen
+            coutstr colorinsp   ;print title
 
-            lda #2
-            jsr TABV
-            lda #HEADERSCOL
-            sta CH
-            coutstr headers
+            lda #2              ;load headers row number into A
+            jsr TABV            ;vertical tab to there
+            lda #HEADERSCOL     ;load headers column number into A
+            sta CH              ;position cursor for headers
+            coutstr headers     ;print headers
 
-            lda #23
-            jsr TABV
+            lda #23             ;load "press any key" row number into A
+            jsr TABV            ;vertical tab to there
             lda #(SCRNWIDTH - anykeylen + 1) / 2
-            sta CH
-            coutstr anykey
+            sta CH              ;position cursor for "press any key"
+            coutstr anykey      ;print "press any key"
 
-            ldx #15
-@nextcolor: txa
-            adc #4
-            jsr TABV
+            ldx #15             ;load last color number into X
+@nextcolor: txa                 ;copy color number to A
+            adc #4              ;add 4 to A (row number)
+            jsr TABV            ;vertical tab to there
 
-            lda #NUMCOL
-            sta CH
-            txa
-            jsr PRHEX
+            lda #NUMCOL         ;load column for color number into A
+            sta CH              ;position cursor there
+            txa                 ;copy color number to A
+            jsr PRHEX           ;print it in hexadecimal
 
-            inc CH
-            lda colorslo,x
+            inc CH              ;move one space to the right
+            lda colorslo,x      ;load color name string
             sta A3L
             lda colorshi,x
             sta A3H
-            jsr couta3
+            jsr couta3          ;print color name string
 
             lda #HEADERSCOL + 1
-            sta CH
-            txa
-            sta A2L
-            asl
-            adc A2L
-            tay
-            adc #3
-            sta A2L
-@nextcol:   lda #0
-            sta A3H
-            lda pal,y
-            sta A3L
-            asl
-            asl
-            adc A3L
-            sta A3L
-            rol A3H
-            jsr DecPrintU16
-            iny
-            cpy A2L
-            bcc @nextcol
+            sta CH              ;position cursor for phase column
+            txa                 ;copy color number to A
+            sta A2L             ;store A in A2L
+            asl                 ;shift A left (multiply by two)
+            adc A2L             ;add A2L to A (now color multiplied by three)
+            tay                 ;copy A to Y (value table start offset)
+            adc #3              ;add 3 to A
+            sta A2L             ;store A in A2L (value table end offset)
+@nextcol:   lda #0              ;load 0 into A
+            sta A3H             ;store A in A3H
+            lda pal,y           ;load next value for this color into A
+            sta A3L             ;store A in A3L
+            asl                 ;shift A left (multiply by two)
+            asl                 ;shift A left (multiply by two)
+            adc A3L             ;add A3L to A (now value multiplied by five)
+            sta A3L             ;store A in A3L
+            rol A3H             ;rotate carry, if any, into A3H
+            jsr DecPrintU16     ;print value in decimal
+            iny                 ;increment Y
+            cpy A2L             ;have we printed all values for this color yet?
+            bcc @nextcol        ;if not, loop to print the next one
 
-            lda BASL
-            adc #BARCOL - 2
-            sta BASL
-            txa
-            sta A3L
+            lda BASL            ;load low byte of row base address into A
+            adc #BARCOL - 2     ;add color bar start column address to A
+            sta BASL            ;store A in BASL
+            txa                 ;copy color number to A
+            sta A3L             ;store A in A3L
+            asl                 ;shift it into the high nibble
             asl
             asl
             asl
-            asl
-            adc A3L
-            ldy #BARLEN
-@drawbar:   sta (BASL),y
-            dey
-            bne @drawbar
+            adc A3L             ;add color number to A (now in both nibbles)
+            ldy #BARLEN         ;load color bar length into Y
+@drawbar:   sta (BASL),y        ;plot two (stacked) pixels on the lores screen
+            dey                 ;decrement Y
+            bne @drawbar        ;if not done, loop to the next pixels
+            dex                 ;decrement X
+            bpl @nextcolor      ;if not done, loop to the next color
 
-            dex
-            bpl @nextcolor
+                                ;build a table of screen switches that will be
+                                ;accessed on color bar scanlines because it's
+                                ;quicker to access a table than compute this on
+                                ;the fly. for each color the first and last
+                                ;lines come from the hires screen (black) and
+                                ;the middle six are from the lores screen (the
+                                ;color bar). adjust one pixel lower on the ii
+                                ;and ii+ to match its character generator.
+            inx                 ;load 0 into X
+            lda VERSION         ;load computer ID byte into A
+            cmp #6              ;check if it's a iie or later
+            beq @iie            ;if yes, no adjustment needed
+            inx                 ;increment X
+@iie:       stx A3L             ;store X in A3L
+            ldx #128            ;load number of bar scanlines into X
+@nextswitch:txa                 ;copy X to A
+            clc                 ;clear carry
+            adc A3L             ;add A3L to A
+            and #%00000110      ;is this a middle-six line?
+            beq @add            ;if no, A is 0
+            lda #$FF            ;if yes, A is $FF
+@add:       adc #<HIRES         ;A is now low byte of HIRES or LORES
+            sta SWITCHES,x      ;store it in the table
+            dex                 ;decrement X
+            bne @nextswitch     ;if not done, loop to next switch
 
-            inx
-            lda VERSION
-            cmp #6
-            beq @iie
-            inx
-@iie:       stx A3L
-            ldx #128
-@nextswitch:txa
-            clc
-            adc A3L
-            and #%00000110
-            beq @add
-            lda #$FF
-@add:       adc #<HIRES
-            sta SWITCHES,x
-            dex
-            bne @nextswitch
+@nextframe: jsr VAPORLK         ;find start of next video frame
+            ldx #8              ;load number of scanlines into X
+            jsr textscanlines   ;show that many mostly-text scanlines
+            ldx #8              ;load number of scanlines into X
+            jsr hiresscanlines  ;show that many hires scanlines
+            ldx #16             ;load number of scanlines into X
+            jsr textscanlines   ;show that many mostly-text scanlines
+            ldx #128            ;load number of scanlines into X
+            jsr barscanlines    ;show that many text-and-color-bar scanlines
+            ldx #32             ;load number of scanlines into X
+            jsr textscanlines   ;show that many mostly-text scanlines
 
-@nextframe: jsr VAPORLK
-            ldx #8
-            jsr textscanlines
-            ldx #8
-            jsr hiresscanlines
-            ldx #16
-            jsr textscanlines
-            ldx #128
-            jsr colorbarscanlines
-            ldx #32
-            jsr textscanlines
-
-            lda BUTN0
-            bmi @waitkeyup
-            lda BUTN1
-            bmi @waitkeyup
-            lda KBD
-            bpl @nextframe
-            bit KBDSTRB
-@waitkeyup: sta TXTSET
-            jsr HOME
-            lda BUTN0
-            bmi @waitkeyup
-            lda BUTN1
-            bmi @waitkeyup
-            jmp (RESET)
+            lda BUTN0           ;check if button 0 is down
+            bmi @waitkeyup      ;if yes, prepare to exit
+            lda BUTN1           ;check if button 1 is down
+            bmi @waitkeyup      ;if yes, prepare to exit
+            lda KBD             ;check if key was pressed
+            bpl @nextframe      ;if no, loop for next frame
+            bit KBDSTRB         ;indicate keypress was handled
+@waitkeyup: sta TXTSET          ;go to text mode
+            jsr HOME            ;clear the screen
+            lda BUTN0           ;check if button 0 is down
+            bmi @waitkeyup      ;if yes, loop until it's not
+            lda BUTN1           ;check if button 1 is down
+            bmi @waitkeyup      ;if yes, loop until it's not
+            jmp (RESET)         ;exit by resetting to BASIC or monitor
 .endproc
 
+;clear hires page 1 to black
 .proc clearhires
-            lda #$0
-            ldx #$20
-            ldy #$3F
+            lda #$0             ;load 0 (black) into A
+            ldx #$20            ;load hires page 1 start high byte into X
+            ldy #$3F            ;load hires page 1 end high byte into Y
             ;fall through to clearscreen
 .endproc
 
+;clear any screen to any value
+;
 ;input: A = value to set each byte to; X = high byte start; Y = high byte end
 .proc clearscreen
-            stx @cpy + 1
-@outerloop: sty @sta1 + 2
+            stx @cpy + 1        ;modify the cpy instruction below
+@outerloop: sty @sta1 + 2       ;modify the sta instructions below
             sty @sta2 + 2
-            ldx #119
+            ldx #119            ;load last offset into X
 @innerloop:
-@sta1:      sta $780,x          ;self-modifying!
-@sta2:      sta $700,x          ;self-modifying!
-            dex
-            bpl @innerloop
-            dey
-@cpy:       cpy #$4             ;self-modifying!
-            bcs @outerloop
-            rts
+@sta1:      sta $780,x          ;store byte in screen (address modified above!)
+@sta2:      sta $700,x          ;store byte in screen (address modified above!)
+            dex                 ;decrement X
+            bpl @innerloop      ;if not done, loop
+            dey                 ;decrement Y
+@cpy:       cpy #$4             ;check if done (value modified above!)
+            bcs @outerloop      ;if not done, loop
+            rts                 ;return
 .endproc
 
 ;underline line 1
+;
 ;input: A = horizontal character position, Y = length (min 2)
 .proc underline
-            clc
-            adc #$80
-            sta A1L
-            lda #>HGR1SCRN
-            ldx VERSION
-            cpx #6
-            beq @iie
-            lda #>HGR1SCRN + 4
-@iie:       sta A1H
-            dey
-            lda #%00111111
-            sta (A1L),Y
-            dey
-            lda #%01111111
-@loop:      sta (A1L),Y
-            dey
-            bne @loop
-            lda #%01111110
-            sta (A1L),Y
-            rts
+            clc                 ;clear carry
+            adc #$80            ;add $80 to A (moving down 8 scanlines)
+            sta A1L             ;store A in A1L
+            lda #>HGR1SCRN      ;load hires page 1 high byte into A
+            ldx VERSION         ;load computer ID byte into X
+            cpx #6              ;check if it's a iie or later
+            beq @iie            ;if yes, no adjustment needed
+            lda #>HGR1SCRN + 4  ;move down by one more scanline
+@iie:       sta A1H             ;store A in A1H
+            dey                 ;decrement Y
+            lda #%00111111      ;load 6 white pixels and 1 black pixel into A
+            sta (A1L),Y         ;store byte in screen
+            dey                 ;decrement Y
+            lda #%01111111      ;load 7 white pixels into A
+@loop:      sta (A1L),Y         ;store byte in screen
+            dey                 ;decrement Y
+            bne @loop           ;loop to next pixels
+            lda #%01111110      ;load 1 black pixel and 6 white pixels into A
+            sta (A1L),Y         ;store byte in screen
+            rts                 ;return
 .endproc
 
 ;output a string
+;
 ;input: A3 = string
 .proc couta3
-            tya
-            pha
-            ldy #$0             ;start at 1st character
+            tya                 ;copy Y to A
+            pha                 ;push A
+            ldy #$0             ;start at zeroth character
             beq @load           ;always
 @loop:      jsr machinecout     ;output character
             iny                 ;move to next character
 @load:      lda (A3L),Y         ;load character
-            bmi @loop           ;loop if high bit is set
+            bmi @loop           ;loop while high bit is set
             ora #%10000000      ;set high bit
             jsr machinecout     ;output character
-            pla
-            tay
-            rts
+            pla                 ;pull A
+            tay                 ;copy A to Y
+            rts                 ;return
 .endproc
 
 ;output a character appropriate for this machine, converting lowercase to
-;uppercase if not iie or newer
+;uppercase if not iie or later
+;
 ;input: A = character
 .proc machinecout
-            sty YSAV
-            ldy VERSION
-            cpy #$6
-            beq @cout           ;don't convert if iie or newer
+            sty YSAV            ;store Y in YSAV
+            ldy VERSION         ;load computer ID byte into Y
+            cpy #$6             ;check if it's a iie or later
+            beq @cout           ;don't convert if iie or later
             cmp #'a' | %10000000
             bcc @cout           ;don't convert if not lowercase
             cmp #('z' + 1) | %10000000
             bcs @cout           ;don't convert if not lowercase
-            and #%11011111      ;lowercase to uppercase
-@cout:      ldy YSAV
+            and #%11011111      ;convert lowercase to uppercase
+@cout:      ldy YSAV            ;load YSAV into Y
             jmp COUT            ;output character
 .endproc
 
@@ -367,45 +382,69 @@ pal:        .byte  0,  0,  0
             rts                 ;6
 .endproc
 
-.proc textscanlines
-@scanline:  sta TXTSET          ;4
+;wait 65 * X cycles (including ldx, jsr, and rts) for mostly-text scanlines
+;
+;on entry, graphics mode is on. leave graphics mode on for the first and last
+;columns, switching to text mode in between. the mode during horizontal blanking
+;-- text or graphics -- determines whether the color burst will be produced, and
+;monitors want all scanlines either to have or not to have the color burst.
+;
+;input: X = number of scanlines
+.proc textscanlines             ;6
+@scanline:  sta TXTSET          ;4  text mode
             jsr wait31          ;31
             php                 ;3
-            sta TXTCLR          ;4
+            sta TXTCLR          ;4  graphics mode
             plp                 ;4
             dex                 ;2
   samepage  beq,@end            ;2+1
             jsr wait12          ;12
-  samepage  bne,@scanline       ;3 always
+  samepage  bne,@scanline       ;3  always
 @end:       rts                 ;6
 .endproc
 
-.proc hiresscanlines
+;wait 65 * X cycles (including ldx, jsr, and rts) for hires scanlines
+;
+;on entry, graphics and hires modes are already on so this routine only needs
+;to delay by the right amount.
+;
+;input: X = number of scanlines
+.proc hiresscanlines            ;6
 @scanline:  jsr wait46          ;46
             dex                 ;2
   samepage  beq,@end            ;2+1
             jsr wait12          ;12
-  samepage  bne,@scanline       ;3 always
+  samepage  bne,@scanline       ;3  always
 @end:       rts                 ;6
 .endproc
 
-.proc colorbarscanlines
-@scanline:  sta TXTSET          ;4
-            ldy SWITCHES,x      ;4
-            lda IOADR,y         ;4
+;wait 65 * X cycles (including ldx, jsr, and rts) for color bar scanlines
+;
+;on entry, graphics and hires modes are on. switch to text mode after the first
+;column to show the color number and name. preset which graphics mode we'll use
+;by loading from the lookup table. switch to that graphics mode to show either
+;the color bar from the lores screen or the black gaps between the bars from the
+;hires screen. back to text mode for the phase/amp/lum values. finally, back to
+;hires graphics mode on the last column before horizontal blanking.
+;
+;input: X = number of scanlines
+.proc barscanlines              ;6
+@scanline:  sta TXTSET          ;4  text mode for color number and name
+            ldy SWITCHES,x      ;4  load low byte of switch into Y
+            lda IOADR,y         ;4  access the switch (lores or hires)
             nop                 ;2
-            sta TXTCLR          ;4
+            sta TXTCLR          ;4  graphics mode for color bar
             php                 ;3
             plp                 ;4
-            sta TXTSET          ;4
-            sta HIRES           ;4
+            sta TXTSET          ;4  text mode for phase/amp/lum values
+            sta HIRES           ;4  hires mode
             nop                 ;2
             php                 ;3
-            sta TXTCLR          ;4
+            sta TXTCLR          ;4  back to graphics mode at end of line
             plp                 ;4
             dex                 ;2
   samepage  beq,@end            ;2+1
             jsr wait12          ;12
-  samepage  bne,@scanline       ;3 always
+  samepage  bne,@scanline       ;3  always
 @end:       rts                 ;6
 .endproc
