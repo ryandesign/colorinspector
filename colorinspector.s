@@ -244,8 +244,10 @@ pal:        .byte  0,  0,  0
             dex                 ;decrement X
             bne @nextswitch     ;if not done, loop to next switch
 
-            stx A3L             ;store 0 in A3L
-@nextframe: jsr VAPORLK         ;find start of next video frame
+            txa                 ;copy X (0) to A
+@nextframe: sta A3L             ;store A in A3L
+
+            jsr VAPORLK         ;find start of next video frame
             ldx #8              ;load number of scanlines into X
             jsr textscanlines   ;show that many mostly-text scanlines
             ldx #8              ;load number of scanlines into X
@@ -272,8 +274,7 @@ pal:        .byte  0,  0,  0
             bpl @after          ;if no, don't update registers
 @pressed:   iny                 ;increment Y
             lda #$FF            ;load $FF into A
-@after:     sta A3L             ;store A in A3L
-            iny                 ;increment Y
+@after:     iny                 ;increment Y
             bne @nextframe      ;if no user input, loop for next frame
 
             bit KBDSTRB         ;indicate keypress was handled
