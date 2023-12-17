@@ -244,6 +244,7 @@ pal:        .byte  0,  0,  0
             dex                 ;decrement X
             bne @nextswitch     ;if not done, loop to next switch
 
+            stx A3L             ;store 0 in A3L
 @nextframe: jsr VAPORLK         ;find start of next video frame
             ldx #8              ;load number of scanlines into X
             jsr textscanlines   ;show that many mostly-text scanlines
@@ -256,19 +257,28 @@ pal:        .byte  0,  0,  0
             ldx #32             ;load number of scanlines into X
             jsr textscanlines   ;show that many mostly-text scanlines
 
-            lda BUTN0           ;check if button 0 is down
-            bmi @waitkeyup      ;if yes, prepare to exit
-            lda BUTN1           ;check if button 1 is down
-            bmi @waitkeyup      ;if yes, prepare to exit
-            lda KBD             ;check if key was pressed
-            bpl @nextframe      ;if no, loop for next frame
+                                ;exit if there was a keypress, including apple
+                                ;keys, but wait until apple keys are up before
+                                ;exiting because we exit via reset which would
+                                ;start the self-test if apple keys were down
+            lda A3L             ;load A3L into A
+            tay                 ;copy A to Y
+            bit KBD             ;check if key was pressed
+            bpl @checkbtn0      ;if no, check buttons
+            lda #$FF            ;load #FF into A
+@checkbtn0: bit BUTN0           ;check if button 0 is down
+            bmi @pressed        ;if yes, update registers
+@checkbtn1: bit BUTN1           ;check if button 1 is down
+            bpl @after          ;if no, don't update registers
+@pressed:   iny                 ;increment Y
+            lda #$FF            ;load $FF into A
+@after:     sta A3L             ;store A in A3L
+            iny                 ;increment Y
+            bne @nextframe      ;if no user input, loop for next frame
+
             bit KBDSTRB         ;indicate keypress was handled
-@waitkeyup: sta TXTSET          ;go to text mode
+            sta TXTSET          ;text mode
             jsr HOME            ;clear the screen
-            lda BUTN0           ;check if button 0 is down
-            bmi @waitkeyup      ;if yes, loop until it's not
-            lda BUTN1           ;check if button 1 is down
-            bmi @waitkeyup      ;if yes, loop until it's not
             jmp (RESET)         ;exit by resetting to BASIC or monitor
 .endproc
 
