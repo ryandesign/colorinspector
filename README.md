@@ -1,5 +1,3 @@
-# COLOR INSPEC][R
-
 ![Screenshot](screenshot.png)
 
 Color Inspector is an Apple II program written in 6502 assembly that displays a
