@@ -14,8 +14,6 @@ aif: $(PROG).aif
 
 dsk: $(PROG).dsk
 
-dos: $(PROG).dos.dsk
-
 play: $(PROG).aif
 	afplay $^
 
@@ -33,10 +31,6 @@ $(PROG).aif: $(PROG)
 
 $(PROG).dsk: $(PROG)
 	$(C2D) -b $<,$(LOAD_ADDRESS) $@
-
-$(PROG).dos.dsk: $(PROG).as
-	ac -dos140 $@
-	ac -as $@ $(PROG) < $<
 
 clean:
 	rm -f $(PROG) $(PROG).as $(PROG).aif $(PROG).dsk *.o
