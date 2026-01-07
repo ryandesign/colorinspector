@@ -44,8 +44,10 @@ Expect problems with clones too.
 
 The following emulators are compatible:
 
+* AppleWin
 * Clock Signal (2023-11-14 and newer)
 * MAME
+* Mariani
 
 The following emulators are not currently compatible:
 
