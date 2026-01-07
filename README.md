@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: © 2023 Ryan Carsten Schmidt <https://github.com/ryandesign>
+SPDX-License-Identifier: MIT
+-->
+
 ![Screenshot](screenshot.png)
 
 Color Inspector is an Apple II program written in 6502 assembly that displays a
